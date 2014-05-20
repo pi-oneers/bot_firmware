@@ -11,7 +11,6 @@
 //  Voltages
 // Neopixel display
 // Wheel odometry
-// Better stepper timings
 // Serial terminal
 // i2c interface
 
@@ -21,36 +20,31 @@
 #include <NewPing.h>
 #include <SPI.h>
 
-
 #define MAX_DISTANCE 200 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
-#define SPI_IDLE 0          // initial state of SPI bus
-#define SPI_READ 1     // next byte is a READ from here
-#define SPI_WRITE 2    // next byte is a WRITE to here
+#define SPI_IDLE 0 // initial state of SPI bus
+#define SPI_READ 1 // next byte is a READ from here
+#define SPI_WRITE 2 // next byte is a WRITE to here
 
 // vars to hold register value and write data. Read data is passed directly out on next clock cycle.
 byte spiRegister = 0;
-byte spiData = 0;
+byte spiData     = 0;
 
 
 // pin definitions
-byte pin_motor1dir = 2;   // direction of motor 1
-byte pin_motor2dir = 4;   // direction of motor 2
-byte pin_motor1pwm = 3;   // PWM (speed) of motor 1
-byte pin_motor2pwm = 5;   // PWM (speed) of motor 2
+byte pin_motor1dir = 7;   // direction of motor 1
+byte pin_motor2dir = 8;   // direction of motor 2
+byte pin_motor1pwm = 5;   // PWM (speed) of motor 1
+byte pin_motor2pwm = 6;   // PWM (speed) of motor 2
 
-byte pin_stepperDir = 7;  // direction of stepper motor
-byte pin_stepperStep = 6; // cycle this pin to perform 1/32 of step
-byte pin_stepperDisable = 8; // low = stepper enable, high = disable to save power
-byte pin_neopixelData = 14; // neopixel data in pin
+byte pin_neopixelData = 16; // neopixel data in pin
 
-byte pin_uSoundTrig = 16;  // trigger pin of the ultrasound (ping) module
-byte pin_uSoundEcho = 15;  // echo pin of the ultrasound module
+byte pin_uSound = 17;  // trigger & echo pin of the ultrasound (ping) module (tied together)
 
-byte pin_servoData = 17;  // pin for the servo data
+//byte pin_servoData = 16;  // pin for the servo data
 
 byte spiReceived = 0; // flag to say we've received an SPI byte
-byte spiByte = 0;     // value of the byte received over SPI
+byte spiByte     = 0; // value of the byte received over SPI
 
 const int SPI_BUFFER_SIZE = 128;    // AB: This may need to be a power of 2 for the producer consumer algorithm to work
 volatile unsigned int gSpiProduceCount = 0;
@@ -60,25 +54,18 @@ volatile byte gSpiResult = 0;
 
 volatile byte gSpiClash = 0;
 
-
-unsigned int sonarInterval = 100; // number of loops per sonar measurement
-unsigned int stepperInterval = 100; // number of loops per stepper step
+unsigned int sonarInterval    = 100;  // number of loops per sonar measurement
 unsigned int neoPixelInterval = 1000; // number of loops per neopixel array update
-
-byte stepperValue = 0;   // increments. Bit 0 used for stepper pin value.
 
 // internal data registers
 
 byte motor1dir = 0;
-int motor2dir = 0;
+int motor2dir  = 0;
 
 byte motor1pwm = 0;
 byte motor2pwm = 0;
 
-int servoPos = 0;
-
-byte stepperSpeed = 0;
-byte stepperDir = 0;
+//int servoPos = 0;
 
 int uSoundDistance = 0;
 
@@ -95,8 +82,8 @@ byte spiState = SPI_IDLE;
 
 // define some library objects
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_NEOPIXELS, pin_neopixelData, NEO_GRB + NEO_KHZ800);
-Servo tiltServo;
-NewPing sonar(pin_uSoundTrig, pin_uSoundEcho, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
+//Servo tiltServo;
+NewPing sonar(pin_uSound, pin_uSound, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 
 // setup: set pin modes and any other associated stuff
 void setup()
@@ -106,13 +93,10 @@ void setup()
     pinMode(pin_motor2dir, OUTPUT);
     pinMode(pin_motor1pwm, OUTPUT);
     pinMode(pin_motor2pwm, OUTPUT);
-    pinMode(pin_stepperDir, OUTPUT);
-    pinMode(pin_stepperStep, OUTPUT);
-    pinMode(pin_stepperDisable, OUTPUT);
     pinMode(pin_neopixelData, OUTPUT);
 
     // start the servo
-    tiltServo.attach(pin_servoData);
+    //tiltServo.attach(pin_servoData);
 
     // start SPI
     enableSPI();
@@ -139,7 +123,6 @@ ISR (SPI_STC_vect)
 
 }  // end of interrupt routine SPI_STC_vect
 
-
 // enable the SPI bus as slave device (PI is master)
 void enableSPI()
 {
@@ -156,8 +139,6 @@ void enableSPI()
     SPI.attachInterrupt();
 }
 
-
-
 // set the motor drives to values defined in the variables
 void controlMotors(void)
 {
@@ -169,32 +150,11 @@ void controlMotors(void)
 
 }
 
-// write to the servo
-void controlServo(void)
-{
-    tiltServo.write(servoPos);
-}
-
-// toggle the stepper pin
-void doStep(void)
-{
-
-    if (stepperSpeed > 0)
-    {
-        stepperInterval = 256 - stepperSpeed;
-        digitalWrite(pin_stepperDisable, 0);
-        digitalWrite(pin_stepperDir, stepperDir);
-        digitalWrite(pin_stepperStep, stepperValue & 0x01);
-        stepperValue++;
-
-    }
-    else
-    {
-        digitalWrite(pin_stepperDisable, 1);
-    }
-
-
-}
+//// write to the servo
+//void controlServo(void)
+//{
+//    tiltServo.write(servoPos);
+//}
 
 // read the distance reported by the ultrasound module.
 // make sure to leave at least 50mS between calls to this
@@ -257,10 +217,8 @@ void processSPI(void)
 
 
     spiReceived = 0;
-
-
-
 }
+
 void processSPIRead()
 {
     // only one case for now: to read the ultrasound distance.
@@ -272,7 +230,6 @@ void processSPIRead()
         default:
             break;
     }
-
 }
 
 void processRegister()
@@ -291,14 +248,8 @@ void processRegister()
         case 04:
             motor2pwm = spiData;
             break;
-        case 05:
-            stepperDir = spiData;
-            break;
-        case 06:
-            stepperSpeed = spiData;
-            break;
         case 07:
-            servoPos = spiData;
+            //servoPos = spiData;
             break;
         case 8 ... 59:
             neoPixelData[spiRegister-8] = spiData;    // wow departure from ANSI-C
@@ -320,7 +271,6 @@ void updateNeoPixel()
 
     strip.show();
 }
-
 
 // main loop
 void loop(void)
@@ -344,11 +294,10 @@ void loop(void)
     }
 
     controlMotors();
-    controlServo();
+    //controlServo();
 
     //Serial.println( controlCounter );
 
-    // only read distance every sonarInterval loops
     if((controlCounter % neoPixelInterval) == 0)
     {
         updateNeoPixel();
@@ -360,9 +309,4 @@ void loop(void)
         readDistance();
     }
 
-    // only step stepper based on interval (derived from speed)
-    if((controlCounter % stepperInterval) == 0)
-    {
-        doStep();
-    }
 }
