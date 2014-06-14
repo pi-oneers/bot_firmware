@@ -2,12 +2,12 @@
 
 ## Roadmap ##
 
-    - 0.1
-        - DC Motors
-        - Ultrasound
-        - NeoPixel
+- 0.1
+    - DC Motors
+    - Ultrasound
+    - NeoPixel
 
-    - 0.2
-        - RTC 
-        - Sleep 
+- 0.2
+    - RTC 
+    - Sleep 
 
